@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>画像GitHubアップローダー</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+    }
+    input[type="text"], input[type="password"] {
+      width: 400px;
+    }
+    #output {
+      white-space: pre-wrap;
+      margin-top: 1em;
+      background: #f0f0f0;
+      padding: 1em;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <h1>画像GitHubアップローダー</h1>
+
+  <label>画像ファイルを選択: <input type="file" id="fileInput" /></label><br /><br />
+  
+  <label>新しいファイル名: <input type="text" id="newName" placeholder="例: image.png" /></label><br />
+  <label>保存パス（GitHub上）: <input type="text" id="path" placeholder="例: assets/images/image.png" /></label><br />
+  <label>リポジトリ名（user/repo）: <input type="text" id="repo" placeholder="例: myuser/myrepo" /></label><br />
+  <label>ブランチ名: <input type="text" id="branch" value="main" /></label><br />
+  <label>GitHubトークン: <input type="password" id="token" /></label><br /><br />
+
+  <button onclick="uploadToGitHub()">🚀 アップロード</button>
+
+  <div id="output"></div>
+
+  <script>
+    async function uploadToGitHub() {
+      const file = document.getElementById('fileInput').files[0];
+      const newName = document.getElementById('newName').value.trim();
+      const repo = document.getElementById('repo').value.trim();
+      const path = document.getElementById('path').value.trim();
+      const branch = document.getElementById('branch').value.trim();
+      const token = document.getElementById('token').value.trim();
+      const output = document.getElementById('output');
+
+      output.textContent = ""; // reset
+
+      if (!file || !newName || !repo || !path || !token) {
+        output.textContent = "⚠️ 全ての項目を入力してください。";
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = async function () {
+        const base64Content = reader.result.split(',')[1];
+
+        try {
+          const url = `https://api.github.com/repos/${repo}/contents/${path}`;
+          const res = await fetch(url, {
+            method: 'PUT',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: 'application/vnd.github.v3+json',
+            },
+            body: JSON.stringify({
+              message: `Add ${newName} via uploader`,
+              content: base64Content,
+              branch: branch,
+            }),
+          });
+
+          if (!res.ok) {
+            const errText = await res.text();
+            throw new Error(`(${res.status}) ${errText}`);
+          }
+
+          const data = await res.json();
+          output.innerHTML = `✅ アップロード成功！<br>📁 GitHub URL: <a href="${data.content.html_url}" target="_blank">${data.content.html_url}</a>`;
+        } catch (err) {
+          output.textContent = `❌ アップロード失敗:\n${err}`;
+        }
+      };
+
+      reader.readAsDataURL(file);
+    }
+  </script>
+</body>
+</html>
